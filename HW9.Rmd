@@ -1,0 +1,314 @@
+---
+title: "HW9"
+output: pdf_document
+---
+
+# Exercise 7.5.1 
+
++ Implement the important sampling method, with $g(x)$ being the standard normal density. Report your estimates using 1000, 10000 and 50000 samples. Also estimate the variances of the estimates.
+
+```{r}
+set.seed(1112)
+# n = 1000
+
+x <- rnorm(1000, 0, 1)
+y <- 1/(5*sqrt(2*pi))*x^4*exp(-(x-2)^2/2)/dnorm(x,mean = 0, sd=1)
+c(mean(y), var(y))
+
+
+# n = 10000
+
+x <- rnorm(10000, 0, 1)
+y <- 1/(5*sqrt(2*pi))*x^4*exp(-(x-2)^2/2)/dnorm(x,mean = 0, sd=1)
+c(mean(y), var(y))
+
+# n = 50000
+
+x <- rnorm(50000, 0, 1)
+y <- 1/(5*sqrt(2*pi))*x^4*exp(-(x-2)^2/2)/dnorm(x,mean = 0, sd=1)
+c(mean(y), var(y))
+
+```
+
++ Design a better importance method to estimate $E(X^2)$ using a different $g(x)$. Justify your choice of $g(x)$.
+
+Let $h(x) = x^2$, and $\theta = E(h(x))$. Suppose we choose $g(x) = h(x)f(x)/\theta$, then we can show that the $Var_g(h^{*}(x)) = \theta^2 - \theta^2 =0$. Therefore the new $g(x)$ can reduce the variance to 0 in theory. This is equivalently to find $\mu = argmax_{x}h(x)f(x)$ where $g(x) \sim N(\mu,1)$
+
+```{r}
+fx <- function(x){
+  y <- 1/(5*sqrt(2*pi))*x^4*exp(-(x-2)^2/2)
+  return(y)
+}
+
+x <- seq(-5, 10, 0.01)
+plot(x, fx(x), type = 'l')
+x[which(fx(x) == max(fx(x)))]
+
+## So g(x) = N(3.24, 1)
+
+```
++ Implement your method and estimate $E(X^2)$ using 1000, 10000 and 50000 samples. Also estimate the variances of the importance sampling estimates.
+
+```{r}
+set.seed(1112)
+# n = 1000
+
+x <- rnorm(1000, 3.24, 1)
+y <- 1/(5*sqrt(2*pi))*x^4*exp(-(x-2)^2/2)/dnorm(x,mean = 3.24, sd=1)
+c(mean(y), var(y))
+
+
+# n = 10000
+
+x <- rnorm(10000, 3.24, 1)
+y <- 1/(5*sqrt(2*pi))*x^4*exp(-(x-2)^2/2)/dnorm(x,mean = 3.24, sd=1)
+c(mean(y), var(y))
+
+# n = 50000
+
+x <- rnorm(50000, 3.24, 1)
+y <- 1/(5*sqrt(2*pi))*x^4*exp(-(x-2)^2/2)/dnorm(x,mean = 3.24, sd=1)
+c(mean(y), var(y))
+
+```
+
++ Compare the two results from the two methods 
+
+```{r}
+## The true expectation of x^2 is 
+integrate(fx, -Inf, Inf)
+
+## It is clear that the second method produce more accurate results even with
+## small smaple size; In addition, the variance of estiamtes from the second
+## method is much smaller compared to the ones from the first method
+
+```
+
+# Exercise 7.5.2
+
++ Write down and implement an algorithm to sample the path of $S(t)$.
+
+```{r}
+rt <- function(r, sigma, initval){
+  s0 <- initval[1]
+  BigT <- initval[2]
+  delta <- initval[3]
+  n <- BigT/delta
+  #i <- seq(from=0, to=BigT, length.out = n)
+  z <- rnorm(n, mean = 0, sd = 1)
+  y <- c(s0)
+  
+  for(i in 2:n){
+    term1 <- exp((r-0.5*sigma^2)*delta + sigma*sqrt(delta)*z[i-1])
+    y[i] <- term1*y[i-1] 
+  }
+  
+  return(y)
+}
+
+set.seed(1113)
+
+n <- 1000
+initval <- c(1, 1, 1/n)
+r <- 0.05
+sigma <- 0.5
+
+y <- rt(r, sigma, initval)
+time <- seq(0, 1, length.out = n)
+
+plot(x=time, y=y, ylab='S(t)', xlab='t',
+     type='l',main = paste(paste(paste('r, sigma=', r, sep = ''),sigma, sep=',')))
+
+
+```
+
++ Set $\sigma=0.5$ and $T=1$. For each of the values of $K \in \{1.1, 1.2, 1.3, 1.4, 1.5\}$, simulate 5000 sample paths of $S(t)$ to get MC estimates of the correlation coefficients between $P_A$ and $S(T)$, between $P_A$ and $P_E$, and between $P_A$ and $P_G$. How do the correlation coefficients changes as $K$ increases?
+
+```{r}
+n <- 12
+initval <- c(1, 1, 1/n)
+r <- 0.05
+sigma <- 0.5
+n.sim <- 5000
+k.vec <- c(1.1, 1.2, 1.3, 1.4, 1.5)
+
+ST.vec <- NULL
+PA.vec <- NULL
+PE.vec <- NULL
+PG.vec <- NULL
+
+rho1.vec <- NULL
+rho2.vec <- NULL
+rho3.vec <- NULL
+
+for(k in k.vec){
+  for(i in 1:n.sim){
+    y <- rt(r, sigma, initval)
+    SA <- mean(y)
+    SG <- prod(y)^{1/n}
+    PA <- exp(-r)*ifelse(SA - k<0, 0, SA-k)
+    PE <- exp(-r)*ifelse(y[n] - k<0, 0, y[n]-k)
+    PG <- exp(-r)*ifelse(SG - k<0, 0, SG-k)
+    
+    ST.vec <- c(ST.vec, y[n])
+    PA.vec <- c(PA.vec, PA)
+    PE.vec <- c(PE.vec, PE)
+    PG.vec <- c(PG.vec, PG)
+  }
+  rho1.vec <- c(rho1.vec, cor(ST.vec, PA.vec))
+  rho2.vec <- c(rho2.vec, cor(PA.vec, PE.vec))
+  rho3.vec <- c(rho3.vec, cor(PA.vec, PG.vec))
+}
+
+dt <- data.frame(k = k.vec, PA_ST = rho1.vec,
+                 PA_PE = rho2.vec, PA_PG = rho3.vec)
+
+## The correlation coefficients decreases as K increases
+
+print(dt)
+
+```
+
++ When $\sigma$ changes while the other parameters hold
+
+```{r}
+
+
+n <- 12
+tau <- 1
+initval <- c(1, tau, tau/n)
+r <- 0.05
+n.sim <- 5000
+sigma.vec <- c(0.2, 0.3, 0.4, 0.5)
+k <- 1.5
+
+ST.vec <- NULL
+PA.vec <- NULL
+PE.vec <- NULL
+PG.vec <- NULL
+
+rho1.vec <- NULL
+rho2.vec <- NULL
+rho3.vec <- NULL
+
+for(sigma in sigma.vec){
+  for(i in 1:n.sim){
+    y <- rt(r, sigma, initval)
+    SA <- mean(y)
+    SG <- prod(y)^{1/n}
+    PA <- exp(-r)*ifelse(SA - k<0, 0, SA-k)
+    PE <- exp(-r)*ifelse(y[n] - k<0, 0, y[n]-k)
+    PG <- exp(-r)*ifelse(SG - k<0, 0, SG-k)
+    
+    ST.vec <- c(ST.vec, y[n])
+    PA.vec <- c(PA.vec, PA)
+    PE.vec <- c(PE.vec, PE)
+    PG.vec <- c(PG.vec, PG)
+  }
+  rho1.vec <- c(rho1.vec, cor(ST.vec, PA.vec))
+  rho2.vec <- c(rho2.vec, cor(PA.vec, PE.vec))
+  rho3.vec <- c(rho3.vec, cor(PA.vec, PG.vec))
+}
+
+dt <- data.frame(sigma = sigma.vec, PA_ST = rho1.vec,
+                 PA_PE = rho2.vec, PA_PG = rho3.vec)
+
+## the correlation increase as sigma increase while other parameters hold the same
+
+
+print(dt)
+
+```
+
++ When $T$ changes while the other parameters hold
+
+```{r}
+
+n <- 12
+r <- 0.05
+sigma <- 0.5
+n.sim <- 5000
+tau.vec <- c(0.4, 0.7, 1, 1.3, 1.6)
+k <- 1.5
+
+ST.vec <- NULL
+PA.vec <- NULL
+PE.vec <- NULL
+PG.vec <- NULL
+
+rho1.vec <- NULL
+rho2.vec <- NULL
+rho3.vec <- NULL
+
+for(tau in tau.vec){
+
+  initval <- c(1, tau, tau/n)
+  
+  for(i in 1:n.sim){
+    y <- rt(r, sigma, initval)
+    SA <- mean(y)
+    SG <- prod(y)^{1/n}
+    PA <- exp(-r)*ifelse(SA - k<0, 0, SA-k)
+    PE <- exp(-r)*ifelse(y[n] - k<0, 0, y[n]-k)
+    PG <- exp(-r)*ifelse(SG - k<0, 0, SG-k)
+    
+    ST.vec <- c(ST.vec, y[n])
+    PA.vec <- c(PA.vec, PA)
+    PE.vec <- c(PE.vec, PE)
+    PG.vec <- c(PG.vec, PG)
+  }
+  rho1.vec <- c(rho1.vec, cor(ST.vec, PA.vec))
+  rho2.vec <- c(rho2.vec, cor(PA.vec, PE.vec))
+  rho3.vec <- c(rho3.vec, cor(PA.vec, PG.vec))
+}
+
+dt <- data.frame(T = tau.vec, PA_ST = rho1.vec,
+                 PA_PE = rho2.vec, PA_PG = rho3.vec)
+
+## correlation coefficients increases as T increases while other parameters hold
+print(dt)
+
+```
+
++ Use $P_G$ as a control variate to develop a control variate MC estimator for $E(P_A)$
+
+```{r}
+n <- 12
+r <- 0.05
+sigma <- 0.4
+n.sim <- 5000
+tau <- 1
+k <- 1.5
+
+ST.vec <- NULL
+PA.vec <- NULL
+PE.vec <- NULL
+PG.vec <- NULL
+
+for(i in 1:n.sim){
+
+  y <- rt(r, sigma, initval)
+  SA <- mean(y)
+  SG <- prod(y)^{1/n}
+  PA <- exp(-r)*ifelse(SA - k<0, 0, SA-k)
+  PG <- exp(-r)*ifelse(SG - k<0, 0, SG-k)
+  
+  ST.vec <- c(ST.vec, y[n])
+  PA.vec <- c(PA.vec, PA)
+  PG.vec <- c(PG.vec, PG)
+}
+coeff <- -cov(PG.vec, PA.vec)/var(PG.vec)
+
+m <- PA.vec + coeff*(PG.vec - mean(PG.vec))
+
+## control variate MC estimates and SD ##
+c(mean(m), var(m))
+
+# MC estimates and SD ##
+c(mean(PA.vec), var(PA.vec))
+
+# We can find that the control variate estimator reduces the 
+# variance significantly 
+
+
+```
